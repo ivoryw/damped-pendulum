@@ -5,7 +5,7 @@
 #define W_MAX 2
 #define A_MAX 2
 
-float A, w, Q, h;
+float A, w, Q;
 float g = 9.81;
 float pi = 3.1415;
 
@@ -20,15 +20,31 @@ window::window(QWidget *parent) :
     QWidget(parent)
 {
     setWindowTitle("Chaotic Pendulum");
-    createInputBox();
-    createPhaseSpaceChart();
 
-    mainBox = new QHBoxLayout();
-    mainBox->addWidget(chartView);
-    mainBox->addWidget(inputBox);
+    A = 1, Q = 1, w = 1;
 
-    setLayout(mainBox);
+    tabWidget = new QTabWidget;
+    tabWidget->addTab(new phaseTab(), "Phase Space");
+    tabWidget->addTab(new poincareTab(), "Poincare Section");
+
+    mainLayout = new QHBoxLayout();
+    mainLayout->addWidget(tabWidget);
+
+    setLayout(mainLayout);
+
     resize(800, 500);
+}
+
+phaseTab::phaseTab(QWidget *parent)
+: QWidget(parent)
+{
+    createPhaseInputBox();
+    createPhaseSpaceChart();
+   
+    QHBoxLayout *mainLayout = new QHBoxLayout;
+    mainLayout->addWidget(chartView);
+    mainLayout->addWidget(phaseInputBox);
+    setLayout(mainLayout);
 
     setValueQ(250);
     setValueA(250);
@@ -36,26 +52,8 @@ window::window(QWidget *parent) :
     updatePhaseSpace();
 }
 
-void window::setValueQ(int value){
-    Q = float(value)/500*Q_MAX;
-    QString s = QString::number(Q);
-    qualVal->setText(s);
-    updatePhaseSpace();
-}
-void window::setValueA(int value){
-    A = float(value)/500*A_MAX;
-    QString s = QString::number(A);
-    AVal->setText(s);
-    updatePhaseSpace();
-}
-void window::setValuew(int value){
-    w = float(value)/500*W_MAX;
-    QString s = QString::number(w);
-    wVal->setText(s);
-    updatePhaseSpace();
-}
 
-void window::createPhaseSpaceChart(){
+void phaseTab::createPhaseSpaceChart(){
     axisX = new QValueAxis;
     axisX->setRange(-1,1);
     axisX->setTitleText("θ / π");
@@ -76,9 +74,9 @@ void window::createPhaseSpaceChart(){
     chartView->setMinimumWidth(500);
 }
 
-void window::createInputBox(){
+void phaseTab::createPhaseInputBox(){
     QGridLayout *layout = new QGridLayout;
-    inputBox = new QGroupBox();
+    phaseInputBox = new QGroupBox();
 
     QLabel *qualLabel = new QLabel("Quality Factor (Q): ");
     QLabel *ALabel = new QLabel("Normalized Amp (Â): ");
@@ -111,24 +109,51 @@ void window::createInputBox(){
     layout->addWidget(wLabel,4,0, Qt:: AlignLeft);
     layout->addWidget(wVal,4,0, Qt::AlignRight);
     layout->addWidget(wSlider,5,0, Qt::AlignTop);
-    inputBox->setLayout(layout);
-    inputBox->setFixedWidth(220);
+    phaseInputBox->setLayout(layout);
+    phaseInputBox->setFixedWidth(220);
 }
 
-void window::updatePhaseSpace(){
+
+void phaseTab::setValueQ(int value){
+    Q = float(value)/500*Q_MAX;
+    QString s = QString::number(Q);
+    qualVal->setText(s);
+    updatePhaseSpace();
+}
+void phaseTab::setValueA(int value){
+    A = float(value)/500*A_MAX;
+    QString s = QString::number(A);
+    AVal->setText(s);
+    updatePhaseSpace();
+}
+void phaseTab::setValuew(int value){
+    w = float(value)/500*W_MAX;
+    QString s = QString::number(w);
+    wVal->setText(s);
+    updatePhaseSpace();
+}
+
+void phaseTab::updatePhaseSpace(){
     int n = 1000;
     float* array = var3_rk4_fixed(dthetadt, dvdt, 0,0,0, 2*pi/(w*100),n);
     float *v_ptr, *theta_ptr;
     theta_ptr = &array[n];
     v_ptr = &array[2*n];
+    
+    static int phase_flag = 0;
+    if(phase_flag == 1){
+        delete phaseSeries;
+    }
+    else{
+        phase_flag = 1;
+    }
 
-    delete phaseSeries;
     phaseSeries = new QScatterSeries;
     phaseSeries->setUseOpenGL(true);
     phaseSeries->setColor(QColor("black"));
     phaseSeries->setMarkerSize(2);
 
-    for(int i = 0; i < n; i++){
+    for(int i = 1; i < n; i++){
         *theta_ptr /= pi;
         if(*theta_ptr > 1)
             *theta_ptr = fmod(*theta_ptr+1,2) - 1;
@@ -142,4 +167,118 @@ void window::updatePhaseSpace(){
     phaseSeries->attachAxis(axisX);
     phaseSeries->attachAxis(axisY);
     delete(array);
+}
+
+poincareTab::poincareTab(QWidget *parent)
+: QWidget(parent)
+{
+    createPoincareChart();
+    createPoincareInputBox();
+
+    QHBoxLayout *mainLayout = new QHBoxLayout;
+    mainLayout->addWidget(chartView);
+    mainLayout->addWidget(poincareInputBox);
+    setLayout(mainLayout);
+    poincareSeries = new QScatterSeries;
+}
+
+void poincareTab::createPoincareChart(){
+    axisX = new QValueAxis;
+    axisX->setRange(1,1.5);
+    axisX->setTitleText("Q");
+    axisX->setMinorTickCount(2);
+    axisY = new QValueAxis;
+    axisY->setRange(0,3);
+    axisY->setTitleText("v");
+    axisY->setTickCount(13);
+    axisY->setMinorTickCount(1);
+
+    poincareChart = new QChart();
+    poincareChart->addAxis(axisX,Qt::AlignBottom);
+    poincareChart->addAxis(axisY,Qt::AlignLeft);
+    poincareChart->legend()->setVisible(false);
+
+    chartView = new QChartView(poincareChart);
+    chartView->setRenderHint(QPainter::Antialiasing);
+    chartView->setMinimumWidth(500);
+}
+
+void poincareTab::createPoincareInputBox(){
+    QGridLayout *layout = new QGridLayout;
+    poincareInputBox = new QGroupBox();
+
+    QLabel *ALabel = new QLabel("Normalized Amp");
+    QLabel *wLabel = new QLabel("Normalized AngFreq");
+
+    QPushButton *goButton = new QPushButton("Go!");
+    connect(goButton, SIGNAL(clicked()), this, SLOT(pressed()));
+
+    AVal = new QLabel;
+    wVal = new QLabel;
+    ASlider = new QSlider(Qt::Horizontal);
+    ASlider->setRange(1,500);
+    ASlider->setValue(250);
+    wSlider = new QSlider(Qt::Horizontal);
+    wSlider->setRange(1,500);
+    wSlider->setValue(250);
+
+    connect(ASlider, SIGNAL(valueChanged(int)), this, SLOT(setValueA(int)));
+    connect(wSlider, SIGNAL(valueChanged(int)), this, SLOT(setValuew(int)));
+
+    layout->addWidget(ALabel,0,0);
+    layout->addWidget(AVal,0,0,Qt::AlignRight);
+    layout->addWidget(ASlider,1,0);
+    layout->addWidget(wLabel,2,0);
+    layout->addWidget(wVal,2,0,Qt::AlignRight);
+    layout->addWidget(wSlider,3,0);
+    layout->addWidget(goButton,5,0);
+    poincareInputBox->setLayout(layout);
+    poincareInputBox->setFixedWidth(220);
+}
+
+void poincareTab::updatePoincareChart(){
+    int n = 5000;
+    float *array, *v;
+    static int poincare_flag = 0;
+    
+    if(poincare_flag == 1){
+        delete poincareSeries;
+    }
+    else{
+        poincare_flag = 1;
+    }
+
+    poincareSeries = new QScatterSeries;
+    poincareSeries->setUseOpenGL(true);
+    poincareSeries->setColor(QColor("black"));
+    poincareSeries->setMarkerSize(2);
+    for(int i = 0; i< 500; i++){
+        Q = i*(0.5)/500 + 1;
+        array = var3_rk4_fixed(dthetadt, dvdt, 0,0,0, 2*pi/(w*100),n);
+        v = &array[2*n+300];
+        for(int j = 300; j < n; j++){
+            if(j%100 == 0)
+                poincareSeries->append(Q, *v);
+            ++v;
+        }
+        delete(array);
+    }
+    poincareChart->addSeries(poincareSeries);
+    poincareSeries->attachAxis(axisX);
+    poincareSeries->attachAxis(axisY);
+}
+void poincareTab::pressed(){
+    updatePoincareChart();
+}
+
+void poincareTab::setValueA(int value){
+    A = float(value)*A_MAX/500;
+    QString s = QString::number(A);
+    AVal->setText(s);
+}
+
+void poincareTab::setValuew(int value){
+    w = float(value)*W_MAX/500;
+    QString s = QString::number(w);
+    wVal->setText(s);
 }

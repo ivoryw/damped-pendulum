@@ -8,33 +8,61 @@
 #include <QtCharts>
 #include <cmath>
 
-class QSlider; 
-class window : public QWidget
+class phaseTab : public QWidget
 {
     Q_OBJECT
 public:
-    explicit window(QWidget *parent = 0);
+    explicit phaseTab(QWidget *parent=0);
 private slots:
     void setValueQ(int);
     void setValueA(int);
     void setValuew(int);
+
 private:
-    void createInputBox();
+    void createPhaseInputBox();
     void createPhaseSpaceChart();
     void updatePhaseSpace();
 
-    QHBoxLayout *mainBox;
-    QGroupBox *inputBox;
+    QGroupBox *phaseInputBox;
     QLabel *qualVal, *AVal, *wVal;
     QSlider *qualSlider,*wSlider, *ASlider;
     QChartView *chartView;
     QChart *phaseChart;
     QValueAxis *axisX, *axisY;
     QScatterSeries *phaseSeries;
+};
 
-signals:
+class poincareTab : public QWidget{
+    Q_OBJECT
+public:
+    explicit poincareTab(QWidget *parent=0);
+private slots:
+   void pressed();
+   void setValuew(int);
+   void setValueA(int);
+private:
+    void createPoincareChart();
+    void createPoincareInputBox();
+    void updatePoincareChart();
 
-public slots:
+    QGroupBox *poincareInputBox;
+    QLabel *wVal, *AVal;
+    QSlider *wSlider, *ASlider;
+    QChartView *chartView;
+    QChart *poincareChart;
+    QValueAxis *axisX, *axisY;
+    QScatterSeries *poincareSeries;
+};
+
+class window : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit window(QWidget *parent = 0);
+    
+private:
+    QHBoxLayout *mainLayout;
+    QTabWidget *tabWidget;
 };
 
 #endif // WINDOW_H
